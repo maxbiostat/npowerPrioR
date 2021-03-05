@@ -34,9 +34,9 @@ build_grid_derivOnly <- function(compiled.model.prior, eps = .01,  M = 10, J = 1
                        strict = strict, niter = niter, tdepth = tdepth, step_size = step_size)
   
   all.outs <- vector(J + 1, mode = "list")
-  all.outs[1]$summaries <- f0$summaries
-  all.outs[2]$summaries <- fm$summaries
-  all.outs[J + 1]$summaries <- fM$summaries
+  all.outs[[1]]$summaries <- f0$summaries
+  all.outs[[2]]$summaries <- fm$summaries
+  all.outs[[J + 1]$summaries <- fM$summaries
   
   same_sign <- sign(fm$deriv_lc) == sign(fM$deriv_lc)
   
@@ -122,12 +122,12 @@ build_grid_derivOnly <- function(compiled.model.prior, eps = .01,  M = 10, J = 1
     res <- data.frame(a0 = a0s, deriv_lc = lderivs, second_deriv_lc = l2derivs)
   }
   
-  if(!is.na(pars[1])) summaries <- lapply(all.outs, function(x) x$summaries)
-  
   if(!is.na(pars[1])){
+   parameter.summaries <- lapply(all.outs, function(x) x$summaries)
+    
     out <- list(
       result = res,
-      summaries = summaries
+      summaries = parameter.summaries
     )
   }else{
     out <- list(
