@@ -1,0 +1,16 @@
+Package: npowerPrioR
+Title: Run a(n approximate) normalised power prior analysis with Stan
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Luiz Max",
+           family = "Carvalho",
+           role = c("aut", "cre"),
+           email = "lmax.fgv@gmail.com",
+           comment = c(ORCID = "0000-0001-5736-5578"))
+Depends: R (>= 4.0.0), parallel, matrixStats, mgcv, rstan, bridgesampling
+Description: This package implements a bisection-type algorithm which employs bridge sampling to obtain marginal likelihood estimates and then fit an "emulation" function to approximate the normalising constant `c(a0)`, predict it on a fine grid and then plug the resulting dictionary into a modified Stan program that will sample from the approximate posterior. 
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
