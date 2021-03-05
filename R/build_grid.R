@@ -132,9 +132,10 @@ build_grid <- function(compiled.model.prior, eps = .01,  M = 1, J = 15, v1 = 5, 
     res <- data.frame(a0 = a0s, lc_a0 = mals, deriv_lc = lderivs, second_deriv_lc = l2derivs)
   }
   
-  if(!is.na(pars[1])) parameter.summaries <- lapply(all.outs, function(x) x$summaries)
-  
   if(!is.na(pars[1])){
+    
+    parameter.summaries <- lapply(all.outs, function(x) x$summaries)
+    
     out <- list(
       result = res,
       summaries = parameter.summaries
