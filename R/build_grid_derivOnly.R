@@ -36,7 +36,7 @@ build_grid_derivOnly <- function(compiled.model.prior, eps = .01,  M = 10, J = 1
   all.outs <- vector(J + 1, mode = "list")
   all.outs[[1]]$summaries <- f0$summaries
   all.outs[[2]]$summaries <- fm$summaries
-  all.outs[[J + 1]$summaries <- fM$summaries
+  all.outs[[J + 1]]$summaries <- fM$summaries
   
   same_sign <- sign(fm$deriv_lc) == sign(fM$deriv_lc)
   
