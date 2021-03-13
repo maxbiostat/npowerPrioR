@@ -2,7 +2,7 @@
 
 Package implementing the routines described in [Carvalho & Ibrahim](https://arxiv.org/abs/2004.14912).
 
-Depends on **rstan** (see [DESCRIPTION](https://github.com/maxbiostat/npowerPrioR/blob/main/DESCRIPTION) for more details).
+Depends on **rstan** and **bridgesampling** (see [DESCRIPTION](https://github.com/maxbiostat/npowerPrioR/blob/main/DESCRIPTION) for more details).
 
 Install the package with 
 
