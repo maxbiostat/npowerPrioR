@@ -10,7 +10,7 @@ Install the package with
 remotes::install_github("maxbiostat/npowerPrioR")
 ```
 
-A step-by-step tutorial can be found in [this](https://github.com/maxbiostat/npowerPrioR/blob/main/vignettes/Bernoulli.Rmd) vignette.
+A step-by-step tutorial can be found in [this](https://github.com/maxbiostat/npowerPrioR/blob/main/vignettes/Bernoulli.Rmd) vignette. More examples will be added in the future. For now, you can look at the [repository](https://github.com/maxbiostat/propriety_power_priors) for the paper.
 
 Any doubts, shoot me a message at `lmax` d.o.t `fgv` at gmail.
 
