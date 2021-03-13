@@ -107,7 +107,7 @@ dd <- 1
 nu <- 1
 eta <- 1
 
-prior <- stan_model(vanilla.stan) 
+prior <- suppressMessages(stan_model(vanilla.stan))
 
 bb.data <- list(
   N0 = N_0,
@@ -192,7 +192,7 @@ As you can see, this modified program has a few key components:
 
 Now, let's compile
 ```{r}
-approx.normalised.model <- stan_model(approximate.stan) 
+approx.normalised.model <- suppressMessages(stan_model(approximate.stan)) 
 ```
 
 and run our model
@@ -211,7 +211,7 @@ unnormalised.stan <- system.file("stan", "simple_Bernoulli_posterior_unnormalise
 ```
 
 ```{r}
-unnorm.bern <- stan_model(unnormalised.stan)
+unnorm.bern <- suppressMessages(stan_model(unnormalised.stan))
 ```
 
 ```{r}
@@ -225,7 +225,7 @@ exactly.normalised.stan <- system.file("stan", "simple_Bernoulli_posterior_norma
 ```
 
 ```{r}
-exactly.normalised.model <- stan_model(exactly.normalised.stan)
+exactly.normalised.model <- suppressMessages(stan_model(exactly.normalised.stan))
 ```
 
 
@@ -332,6 +332,8 @@ theta_posterior <- ggplot(data = par.posteriors, aes(x = theta, colour = normali
 
 theta_posterior
 ```
+
+
 ## Conclusion
 
 In this vignette we have shown how to write a Stan program to do a fixed $a_0$ power prior analysis for use within **npowerPrioR** and how to modify that program to include an approximate emulation function for the log-normalising constant, $\log(c(a_0))$.
