@@ -3,6 +3,7 @@
 export(build_grid)
 export(build_grid_derivOnly)
 export(create_lc_df)
+export(create_lc_df_derivOnly)
 export(get_band)
 export(get_deriv_and_mal)
 export(get_deriv_only)
