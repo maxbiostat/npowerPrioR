@@ -1,0 +1,339 @@
+---
+title: "Bernoulli"
+output: rmarkdown::html_vignette
+highlight: pygments
+vignette: >
+  %\VignetteIndexEntry{Bernoulli}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = ""
+)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+```
+
+## Background
+So you have this model you (or your employers) really like and that has been extensively tested and validated.
+A new batch of data arrives for you to analyse and you wonder how to best use the historical data ($D_0$) you have access to.
+A little bit of searching on the internet suggests you might use a [power prior](https://projecteuclid.org/journals/statistical-science/volume-15/issue-1/Power-prior-distributions-for-regression-models/10.1214/ss/1009212673.full),  which consist of raising the likelihood, $L(D_0 \mid \theta)$ to a scalar $a_0$, usually taken to be in $[0, 1]$.
+Like so
+$$ p(\theta \mid D_0) = L(D_0 \mid \theta)^{a_0} \pi(\theta), $$
+where $\pi(\theta)$ is called the _initial_ prior for the parameter $\theta$.
+
+So you code that up.
+Only to realise you have no idea what $a_0$ should be. 
+What to do now?
+A bit more searching returns [this](https://onlinelibrary.wiley.com/doi/abs/10.1002/sim.6728) helpful review, the section 2.1 of which points you towards a **normalised power prior**:
+$$ \tilde{p}(\theta \mid D_0) = \frac{L(D_0 \mid \theta)^{a_0} \pi(\theta)}{\int_{\boldsymbol{\Theta}} L(D_0 \mid t)^{a_0} \pi(t)\,dt} \pi_A(a_0),$$
+which hinges on the quantity
+$$ c(a_0) := \int_{\boldsymbol{\Theta}} L(D_0 \mid t)^{a_0} \pi(t)\,dt.$$
+This normalised density can now be used to compute fancy posterior in face of the new data:
+$$ \tilde{p}(\theta \mid D_0, D) = L(D \mid \theta)L(D_0 \mid \theta)^{a_0} \pi(\theta) \frac{\pi_A(a_0)}{c(a_0)}.$$
+
+## Getting our hands dirty
+
+In this vignette we will use the **npowerPrioR** package to implement the routines described in [Carvalho & Ibrahim (2021)](https://arxiv.org/abs/2004.14912) to reproduce the Bernoulli example (Scenario 1) in [Neuenschwander et al. (2009)](https://onlinelibrary.wiley.com/doi/10.1002/sim.3722).
+
+The historical data consist of $N_0$ Bernoulli trials $x_{0i} \in \{0,1\}$.
+Suppose there were $y_0 = \sum_{i=1}^{N_0}x_{0i}$ successes.
+The model is
+$$
+\begin{align*}
+ \theta &\sim \operatorname{Beta}(c, d), \\
+ x_{0i} \mid \theta &\sim \operatorname{Bernoulli}(\theta).
+\end{align*}
+$$
+This leads to a Beta posterior distribution for $\theta$,
+$$
+\begin{equation}
+  p(\theta \mid N_0, y_0, a_0) \propto \theta ^{a_0 y_0 + c - 1} (1-\theta)^{a_0 (N_0 -y_0) + d - 1},
+\end{equation}
+$$
+and hence ([Neuenschwander et al.,  2009](https://onlinelibrary.wiley.com/doi/10.1002/sim.3722)):
+$$
+\begin{equation}
+  c(a_0) = \frac{\mathcal{B}(a_0 y_0 + c, a_0 (N_0 -y_0) + d)}{\mathcal{B}(c, d)},
+\end{equation}
+$$
+where $\mathcal{B}(w, z) = \frac{\Gamma(w)\Gamma(z)}{\Gamma(w + z)}$.
+
+So here we will be comparing the approximate power prior to its exact counterpart, since in this simple example we know $c(a_0)$ exactly -- but we'll pretend we don't.
+
+First, let's load up the package
+```{r setup}
+library(npowerPrioR)
+```
+
+Now let's have a look at what a program implementing the vanilla power prior looks like:
+
+```{r}
+vanilla.stan <- system.file("stan", "simple_Bernoulli_prior.stan",
+                            package="npowerPrioR")
+```
+
+```{r}
+writeLines(readLines(vanilla.stan))
+```
+So, as you can see, just a regular Stan model, with the exception that we have multiplied the likelihood by $a_0$.
+There are few important things to notice here:
+
+* The program must store the log-likelihood (`logL`) and its square (`logL_sq`) in the `transformed parameters` block. This is important for the routines in **npowerPrioR**;
+
+* All of the component densities need to be written out in full, i.e. we always write
+```
+target += normal_lpdf(x | 0, 1);
+```
+instead of 
+```
+x ~ normal(0, 1);
+```
+
+Now we can finally run our routine to estimate $c(a_0)$ using the bisection-type algorithm described in [Carvalho & Ibrahim (2021)](https://arxiv.org/abs/2004.14912).
+
+```{r}
+N_0 <- 100
+y_0 <- 20
+
+N <- 100
+y <- 20
+
+cc <- 1
+dd <- 1
+
+nu <- 1
+eta <- 1
+
+prior <- stan_model(vanilla.stan) 
+
+bb.data <- list(
+  N0 = N_0,
+  y0 = y_0,
+  c = cc,
+  d = dd,
+  a_0 = NA
+)
+
+#####################
+
+rstan_options(auto_write = TRUE)
+options(mc.cores = 4)
+
+epsilon <- 0.05
+J <- 20
+maxA <- 1
+```
+
+```{r}
+adaptive.ca0.estimates <- build_grid(compiled.model.prior = prior,
+                                       eps = epsilon, M = maxA,
+                                       J = J, v1 = 10, v2 = 10,
+                                       stan.list = bb.data, pars = "theta")
+warnings()
+```
+
+Let's look at what the product of our labour is:
+```{r}
+head(adaptive.ca0.estimates$result)
+```
+Nice! So we have measured $\log(c(a_0))$ at a few points.
+Now we we'll fit a generalised additive model (GAM) to emulate $\log(c(a_0))$ at any point we want:
+```{r}
+fit.gam <- mgcv::gam(lc_a0 ~ s(a0, k = J + 1), data = adaptive.ca0.estimates$result)
+```
+
+Now we'll produce predictions from the GAM model to create a fine dictionary of pairs $a_0, \log(c(a_0))$.
+We'll pick grid size of $K=20, 000$.
+
+```{r}
+K <- 2e4 
+bb.data.forposterior <- list(
+  N0 = N_0,
+  y0 = y_0,
+  c = cc,
+  d = dd,
+  nu = nu,
+  eta = eta,
+  N = N,
+  y = y,
+  K = K
+)
+
+pred_a0s <- seq(0, max(adaptive.ca0.estimates$result$a0), length.out = K)
+a0_grid <- data.frame(a0 = pred_a0s,
+                      lc_pred = predict(fit.gam, newdata = data.frame(a0 = pred_a0s)))
+
+bb.data.forposterior$pred_grid_x <- a0_grid$a0
+bb.data.forposterior$pred_grid_y <- a0_grid$lc_pred
+```
+
+
+These can be plugged in a modified program.
+Let us investigate its structure:
+```{r}
+approximate.stan <- system.file("stan", "simple_Bernoulli_posterior_normalised_approximate.stan",
+                            package="npowerPrioR")
+```
+
+
+```{r}
+writeLines(readLines(approximate.stan))
+```
+As you can see, this modified program has a few key components:
+
+* The `functions` block now includes functions approximately compute $\log(c(a_0))$ from a dictionary. Note that these functions are model-agnostic. You can just copy-paste them into a program for your model and they should work.
+
+* The `model`block now has a line with `-approximate_ca0` in it (take note of the sign, it's important)
+
+* The line dubbed "Likelihood" in the program implements the likelihood of the current data $L(D\mid \theta)$.
+
+Now, let's compile
+```{r}
+approx.normalised.model <- stan_model(approximate.stan) 
+```
+
+and run our model
+
+```{r}
+approx.norm.posterior.bern <- sampling(approx.normalised.model,
+                                       data = bb.data.forposterior,
+                                       refresh = 500, iter = 4000)
+```
+OK, we'll annotate those results shortly.
+
+To finish this analysis off, we will run both the unnormalised (mathematically wrong!, see [Neuenschwander et al.,  2009](https://onlinelibrary.wiley.com/doi/10.1002/sim.3722)) version of the power prior and the exactly normalised model, because in this situation we're blessed enough to know the correct $c(a_0)$ in closed-form.
+```{r}
+unnormalised.stan <- system.file("stan", "simple_Bernoulli_posterior_unnormalised.stan",
+                            package="npowerPrioR")
+```
+
+```{r}
+unnorm.bern <- stan_model(unnormalised.stan)
+```
+
+```{r}
+unnorm.posterior.bern <- sampling(unnorm.bern, data = bb.data.forposterior,
+                                  refresh = 500, iter = 4000)
+```
+And now, the exactly normalised posterior:
+```{r}
+exactly.normalised.stan <- system.file("stan", "simple_Bernoulli_posterior_normalised.stan",
+                            package="npowerPrioR")
+```
+
+```{r}
+exactly.normalised.model <- stan_model(exactly.normalised.stan)
+```
+
+
+```{r}
+norm.posterior.bern <- sampling(exactly.normalised.model,
+                                data = bb.data.forposterior,
+                                refresh = 500, iter = 4000)
+```
+
+Good. Now let's compare all of the estimates we have computed. First, a little bit of prep
+
+```{r}
+# Eq 8 in Neuenschwander et al. 2009
+posterior_a0_Bernoulli <- function(a_0, y0, n0, y, n, cc, dd, eta, nu, log = FALSE){
+  term1 <- lgamma(a_0 * n0 + cc + dd) + lgamma(a_0 * y0 + y + cc) + lgamma( a_0 *(n0-y0) + (n - y) + dd)
+  term2 <- lgamma(a_0 * y_0 + cc) + lgamma(a_0 * (n0 - y0) + dd ) + lgamma(a_0 * n0 + n + cc + dd)
+  term3 <- dbeta(a_0, shape1 = eta, shape2 = nu, log = TRUE)
+  ans <- term1 - term2 + term3
+  if(!log) ans <- exp(ans)
+  return(ans)
+}
+post_a0 <- function(x) {
+  posterior_a0_Bernoulli(a_0 = x, y0 = y_0, n0 = N_0,
+                         y = y, n = N, cc = cc, dd = dd,eta = eta, nu = nu)
+}
+post_a0  <- Vectorize(post_a0) 
+Kp <- integrate(post_a0, 0, 1)$value
+norm_post_a0 <- function(x) post_a0(x)/Kp
+norm_post_a0  <- Vectorize(norm_post_a0)
+```
+
+Let's combine the posterior estimates for $a_0$ under the various models:
+```{r}
+a0.unnorm <- extract(unnorm.posterior.bern, 'a_0')$a_0
+a0.approx <- extract(approx.norm.posterior.bern, 'a_0')$a_0
+a0.norm <- extract(norm.posterior.bern, 'a_0')$a_0
+
+a0.dt <-  data.frame(a0 = c(a0.unnorm, a0.norm, a0.approx),
+                     normalisation = c( rep("none", length(a0.unnorm)),
+                                        rep("exact", length(a0.norm)),
+                                        rep("approximate", length(a0.approx)) ))
+```
+
+Now, a nice plot:
+
+```{r}
+library(ggplot2)
+
+a0_dist <- ggplot(a0.dt, aes(x = a0, fill = normalisation, colour = normalisation)) +
+  geom_density() +
+  stat_function(fun = function(x) dbeta(x, eta, nu),
+                geom = "line", colour = "black", linetype = "longdash") + 
+  stat_function(fun = norm_post_a0,
+                geom = "line", colour = "black", linetype = "solid") + 
+  # ggtitle("Bernoulli") +
+  facet_grid(normalisation~., scales = "free") +
+  scale_y_continuous("Density", expand = c(0, 0)) +
+  scale_x_continuous(expression(a[0]), expand = c(0, 0)) + 
+  theme_bw(base_size = 20) +
+  theme(legend.position = "none") + 
+  theme(legend.position = "bottom",
+        legend.justification = "centre",
+        legend.title = element_blank(),
+        strip.background = element_blank(),
+        strip.text.y = element_blank(),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.box.margin = margin(0, 0, 0, 0)) 
+
+a0_dist
+```
+Now let's look at the estimates of the success probability, $\theta$.
+
+```{r}
+unnorm.theta.dt <- data.frame(theta = extract(unnorm.posterior.bern, 'theta')$theta)
+unnorm.theta.dt$normalisation <- "none"
+
+approx.theta.dt <- data.frame(theta = extract(approx.norm.posterior.bern, 'theta')$theta)
+approx.theta.dt$normalisation <- "approximate"
+
+norm.theta.dt <- data.frame(theta = extract(norm.posterior.bern, 'theta')$theta)
+norm.theta.dt$normalisation <- "exact"
+
+par.posteriors <- rbind(unnorm.theta.dt, approx.theta.dt, norm.theta.dt)
+
+a0_star <- 0.05
+a_star <- a0_star*bb.data.forposterior$y0 + bb.data.forposterior$c + bb.data.forposterior$y
+b_star <- a0_star*(bb.data.forposterior$N0 - bb.data.forposterior$y0) + bb.data.forposterior$d + (bb.data.forposterior$N - bb.data.forposterior$y)
+
+theta_posterior <- ggplot(data = par.posteriors, aes(x = theta, colour = normalisation, fill = normalisation)) +
+  geom_density(alpha = .4) +
+  stat_function(fun = function(x) dbeta(x, a_star, b_star),
+                geom = "line", colour = "black", linetype = "solid") + 
+  # geom_vline(xintercept = y/N, linetype = "dashed") +
+  scale_x_continuous(expression(theta), expand = c(0, 0)) +
+  scale_y_continuous("Density", expand = c(0, 0)) +
+  theme_bw(base_size = 20) + 
+  theme(legend.position = "bottom",
+        legend.justification = "centre",
+        legend.title = element_blank(),
+        strip.background = element_blank(),
+        strip.text.y = element_blank(),
+        legend.margin = margin(0, 0, 0, 0),
+        legend.box.margin = margin(0, 0, 0, 0))
+
+theta_posterior
+```
+## Conclusion
+
+In this vignette we have shown how to write a Stan program to do a fixed $a_0$ power prior analysis for use within **npowerPrioR** and how to modify that program to include an approximate emulation function for the log-normalising constant, $\log(c(a_0))$.
+
+We have also compared the approximately normalised  power prior to the exactly normalised distribution in a situation where we know the true answer, and found that it gave very good results, both in terms of the marginal posterior for $a_0$ and the marginal posterior of the parameter of interest, $\theta$.
