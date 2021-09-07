@@ -14,4 +14,4 @@ A step-by-step tutorial can be found in [this](https://github.com/maxbiostat/npo
 
 Any doubts, shoot me a message at `lmax` d.o.t `fgv` at gmail.
 
-Many thanks to Chris Koenig and [Ben Jones](https://www.plymouth.ac.uk/staff/ben-jones) for testing early version of the code.
+Many thanks to Chris Koenig and [Ben Jones](https://medicine.exeter.ac.uk/people/profile/index.php?web_id=Ben_Jones) for testing early version of the code.
