@@ -1,6 +1,6 @@
 # Sampling from a(n approximate) normalised power prior with Stan.
 
-Package implementing the routines described in [Carvalho & Ibrahim](https://arxiv.org/abs/2004.14912).
+Package implementing the routines described in [Carvalho & Ibrahim (2021)](https://arxiv.org/abs/2004.14912).
 
 Depends on **rstan** and **bridgesampling** (see [DESCRIPTION](https://github.com/maxbiostat/npowerPrioR/blob/main/DESCRIPTION) for more details).
 
